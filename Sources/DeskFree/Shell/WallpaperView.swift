@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct WallpaperView: View, Equatable {
+struct WallpaperView: View {
     let wallpaper: Wallpaper
     let revision: Int
 

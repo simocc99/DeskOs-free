@@ -24,13 +24,19 @@ jobs:
 
       - name: Build & test
         run: |
-          set -o pipefail
+          set +e
           xcodebuild test \
             -project DeskFree.xcodeproj \
             -scheme DeskFree \
             -destination 'platform=iOS Simulator,name=iPhone 16' \
             -derivedDataPath build/sim \
-            CODE_SIGNING_ALLOWED=NO 2>&1 | tee build.log | tail -n 400
+            CODE_SIGNING_ALLOWED=NO > build.log 2>&1
+          status=$?
+          echo "---- errors ----"
+          grep -E "error:" build.log | sed -E 's#/Users/runner/work/[^/]+/[^/]+/##' | sort -u | head -150
+          echo "---- test results ----"
+          grep -E "Test Case .* (passed|failed)|Executed [0-9]+ tests|TEST (SUCCEEDED|FAILED)|BUILD (SUCCEEDED|FAILED)" build.log | head -150
+          exit $status
 
       - name: Upload build log on failure
         if: failure()
