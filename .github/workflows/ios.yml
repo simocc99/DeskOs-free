@@ -1,0 +1,75 @@
+name: iOS
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Build & unit tests (simulator)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Build & test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project DeskFree.xcodeproj \
+            -scheme DeskFree \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -derivedDataPath build/sim \
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee build.log | tail -n 400
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+
+  ipa:
+    name: Unsigned IPA (for sideloading)
+    runs-on: macos-15
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build for device (no signing)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project DeskFree.xcodeproj \
+            -scheme DeskFree \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/device \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" 2>&1 | tail -n 100
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/device/Build/Products/Release-iphoneos/DeskFree.app Payload/
+          zip -qry DeskFree-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DeskFree-unsigned-ipa
+          path: DeskFree-unsigned.ipa

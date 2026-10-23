@@ -1,0 +1,19 @@
+# Xcode / XcodeGen (the project is generated from project.yml)
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
+build/
+build.log
+Sources/DeskFree/Info.plist
+
+# SwiftPM
+.build/
+.swiftpm/
+
+# macOS
+.DS_Store
+
+# Packaging
+Payload/
+*.ipa
