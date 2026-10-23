@@ -1,7 +1,7 @@
 import SwiftUI
 import PDFKit
 
-struct PDFWindowView: View {
+struct PreviewWindowView: View {
     let window: DeskWindow
     @ObservedObject private var model: PDFModel
 

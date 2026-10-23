@@ -10,6 +10,23 @@ protocol PointerInteractive: AnyObject {
     /// `point` is relative to the top-left corner of the window content area.
     func pointerClick(at point: CGPoint)
     func pointerScroll(by delta: CGPoint)
+    /// Pinch on the trackpad; `scale` is the incremental factor (1.05 = 5 % bigger).
+    func pointerZoom(by scale: CGFloat)
+}
+
+extension PointerInteractive {
+    func pointerZoom(by scale: CGFloat) {}
+}
+
+/// Tools that add entries to the File and Edit menus of the menu bar.
+protocol MenuContributing: AnyObject {
+    func fileMenuEntries() -> [MenuEntry]
+    func editMenuEntries() -> [MenuEntry]
+}
+
+extension MenuContributing {
+    func fileMenuEntries() -> [MenuEntry] { [] }
+    func editMenuEntries() -> [MenuEntry] { [] }
 }
 
 enum KeyInput {
@@ -137,13 +154,29 @@ final class DeskSession: ObservableObject {
     let models = ToolModelStore()
     let presenter = SystemPresenter()
 
-    @Published var spotlightVisible = false
+    @Published var spotlightVisible = false {
+        didSet {
+            if spotlightVisible {
+                keyboardWanted = true
+            } else if oldValue {
+                keyboardWanted = false
+            }
+        }
+    }
     @Published var spotlightQuery = ""
     @Published var spotlightSelection = 0
     @Published private(set) var spotlightFiles: [URL] = []
     @Published private(set) var externalConnected = false
     /// User chose to drive the desktop by touch on the phone even with a screen connected.
     @Published var forceTouchDesktop = false
+    @Published var launchpadVisible = false
+    @Published var switcherVisible = false
+    /// Index of the menu-bar menu that is open.
+    @Published var openMenu: Int?
+    /// A tool clicked a text field: the controller should bring up the phone keyboard.
+    @Published var keyboardWanted = false
+    /// The controller shows the preview full height instead of the trackpad.
+    @Published var previewExpanded = false
 
     private var cancellables = Set<AnyCancellable>()
     private var drag: PointerDrag = .none
@@ -211,7 +244,19 @@ final class DeskSession: ObservableObject {
     }
 
     func hitTester() -> HitTester {
-        HitTester(desktop: windows.desktopSize, windows: windows.windows, dock: dockLayout())
+        HitTester(
+            desktop: windows.desktopSize,
+            windows: windows.windows,
+            dock: dockLayout(),
+            overlay: currentOverlay(),
+            menu: menuLayout()
+        )
+    }
+
+    func currentOverlay() -> DesktopOverlay {
+        if launchpadVisible { return .launchpad }
+        if switcherVisible { return .switcher(windows.windows.map(\.id)) }
+        return .none
     }
 
     // MARK: Pointer
@@ -279,6 +324,14 @@ final class DeskSession: ObservableObject {
         }
     }
 
+    func pointerZoom(by scale: CGFloat) {
+        var targetID = windows.frontmostID
+        if case .windowContent(let id, _) = hitTester().hit(pointer.position) { targetID = id }
+        if let id = targetID, let tool = models.existing(for: id) as? PointerInteractive {
+            tool.pointerZoom(by: scale)
+        }
+    }
+
     private func applyDrag() {
         let p = pointer.position
         guard dragTravel > 3 else { return }
@@ -309,14 +362,189 @@ final class DeskSession: ObservableObject {
         case .windowMaximize(let id): windows.toggleMaximize(id)
         case .dock(.tool(let tool)): windows.activate(tool)
         case .dock(.minimized(let id)): windows.focus(id)
+        case .dock(.launchpad): toggleLaunchpad()
         case .menuLogo: windows.activate(.settings)
         case .menuSearch: toggleSpotlight()
+        case .menuTitle(let index): toggleMenu(index)
+        case .menuRow(let menu, let row): runMenuEntry(menu: menu, row: row)
+        case .menuDismiss: openMenu = nil
+        case .launchpadApp(let tool): openApplication(tool)
+        case .launchpadBackground: launchpadVisible = false
+        case .switcherCard(let id):
+            switcherVisible = false
+            windows.focus(id)
+        case .switcherBackground: switcherVisible = false
+        case .desktopIcon(let icon): openDesktopIcon(icon)
         case .windowContent(let id, let point):
             if let tool = models.existing(for: id) as? PointerInteractive {
                 tool.pointerClick(at: point)
             }
         default: break
         }
+    }
+
+    // MARK: Overlays, menus, shortcuts
+
+    func toggleLaunchpad() {
+        launchpadVisible.toggle()
+        if launchpadVisible { closeTransientUI(except: .launchpad) }
+    }
+
+    func toggleSwitcher() {
+        switcherVisible.toggle()
+        if switcherVisible { closeTransientUI(except: .switcher) }
+    }
+
+    private enum Transient { case launchpad, switcher }
+
+    private func closeTransientUI(except kept: Transient) {
+        openMenu = nil
+        spotlightVisible = false
+        if kept != .launchpad { launchpadVisible = false }
+        if kept != .switcher { switcherVisible = false }
+    }
+
+    func toggleMenu(_ index: Int) {
+        openMenu = openMenu == index ? nil : index
+    }
+
+    /// Opens a new window for the tool, or brings its topmost window to the front.
+    func openOrFocus(_ tool: ToolKind) {
+        let existing = windows.windows(of: tool)
+        if let top = existing.max(by: { $0.z < $1.z }) {
+            windows.focus(top.id)
+        } else {
+            windows.open(tool)
+        }
+    }
+
+    func openApplication(_ tool: ToolKind) {
+        launchpadVisible = false
+        openOrFocus(tool)
+    }
+
+    func openDesktopIcon(_ icon: DesktopIcon) {
+        switch icon {
+        case .documents: openOrFocus(.files)
+        case .applications: toggleLaunchpad()
+        }
+    }
+
+    func requestKeyboard() {
+        keyboardWanted = true
+    }
+
+    func dismissKeyboard() {
+        keyboardWanted = false
+    }
+
+    /// Focuses the browser address bar (opening a browser if needed).
+    func focusBrowserAddress() {
+        openOrFocus(.browser)
+        if let id = windows.frontmostID, let browser = models.existing(for: id) as? BrowserModel {
+            browser.addressDraft = ""
+        }
+        requestKeyboard()
+    }
+
+    func menuLayout() -> MenuLayout {
+        MenuLayout(
+            appName: windows.frontmost?.tool.title ?? "Desktop",
+            menus: menus(),
+            openIndex: openMenu,
+            desktop: windows.desktopSize
+        )
+    }
+
+    func runMenuEntry(menu: Int, row: Int) {
+        let all = menus()
+        guard all.indices.contains(menu), all[menu].entries.indices.contains(row) else { return }
+        let entry = all[menu].entries[row]
+        guard entry.enabled, !entry.isSeparator else { return }
+        openMenu = nil
+        entry.action()
+    }
+
+    func menus() -> [DesktopMenu] {
+        let front = windows.frontmost
+        let contributor = front.flatMap { models.existing(for: $0.id) } as? MenuContributing
+
+        var file: [MenuEntry] = []
+        let newTool = front?.tool ?? .files
+        file.append(MenuEntry(title: "New \(newTool.title) Window", shortcut: "⌘N") { [weak self] in
+            self?.windows.open(newTool)
+        })
+        let toolFile = contributor?.fileMenuEntries() ?? []
+        if !toolFile.isEmpty {
+            file.append(.separator)
+            file += toolFile
+        }
+        file.append(.separator)
+        file.append(MenuEntry(title: "Close Window", shortcut: "⌘W", enabled: front != nil) { [weak self] in
+            if let id = self?.windows.frontmostID { self?.windows.close(id) }
+        })
+        file.append(MenuEntry(title: "Close All Windows", enabled: !windows.windows.isEmpty) { [weak self] in
+            self?.windows.closeAll()
+        })
+
+        var edit = contributor?.editMenuEntries() ?? []
+        if edit.isEmpty {
+            edit = [MenuEntry(title: "Undo", shortcut: "⌘Z", enabled: false), MenuEntry(title: "Redo", shortcut: "⇧⌘Z", enabled: false)]
+        }
+        edit.append(.separator)
+        edit.append(MenuEntry(title: "Spotlight Search…", shortcut: "⌘Space") { [weak self] in
+            self?.spotlightVisible = true
+        })
+
+        var window: [MenuEntry] = []
+        window.append(MenuEntry(title: "Minimize", shortcut: "⌘M", enabled: front != nil) { [weak self] in
+            if let id = self?.windows.frontmostID { self?.windows.minimize(id) }
+        })
+        window.append(MenuEntry(title: "Zoom", enabled: front != nil) { [weak self] in
+            if let id = self?.windows.frontmostID { self?.windows.toggleMaximize(id) }
+        })
+        window.append(MenuEntry(title: "Tile Window to Left", enabled: front != nil) { [weak self] in
+            if let id = self?.windows.frontmostID { self?.windows.snap(id, to: .left) }
+        })
+        window.append(MenuEntry(title: "Tile Window to Right", enabled: front != nil) { [weak self] in
+            if let id = self?.windows.frontmostID { self?.windows.snap(id, to: .right) }
+        })
+        window.append(.separator)
+        window.append(MenuEntry(title: "Show Desktop", enabled: !windows.windows.isEmpty) { [weak self] in
+            self?.windows.toggleShowDesktop()
+        })
+        window.append(MenuEntry(title: "All Windows") { [weak self] in
+            self?.toggleSwitcher()
+        })
+        window.append(MenuEntry(title: "Launchpad") { [weak self] in
+            self?.toggleLaunchpad()
+        })
+        if !windows.windows.isEmpty {
+            window.append(.separator)
+            for item in windows.windows {
+                let mark = item.id == front?.id ? "✓ " : "   "
+                let id = item.id
+                window.append(MenuEntry(title: mark + item.title) { [weak self] in
+                    self?.windows.focus(id)
+                })
+            }
+        }
+
+        let help: [MenuEntry] = [
+            MenuEntry(title: "Welcome to DeskFree") { [weak self] in
+                self?.openFile(DocumentsStore.ensureWelcomeFile())
+            },
+            MenuEntry(title: "DeskFree on GitHub") { [weak self] in
+                if let url = URL(string: "https://github.com/simocc99/DeskOs-free") { self?.openURL(url) }
+            }
+        ]
+
+        return [
+            DesktopMenu(title: "File", entries: file),
+            DesktopMenu(title: "Edit", entries: edit),
+            DesktopMenu(title: "Window", entries: window),
+            DesktopMenu(title: "Help", entries: help)
+        ]
     }
 
     // MARK: Spotlight
@@ -343,8 +571,7 @@ final class DeskSession: ObservableObject {
     func launch(_ result: SpotlightResult) {
         spotlightVisible = false
         switch result.kind {
-        case .tool(let tool):
-            if windows.windows(of: tool).isEmpty { windows.open(tool) } else { windows.activate(tool) }
+        case .tool(let tool): openOrFocus(tool)
         case .window(let id): windows.focus(id)
         case .file(let url): openFile(url)
         case .web(let query):
@@ -359,7 +586,9 @@ final class DeskSession: ObservableObject {
     func openFile(_ url: URL) {
         switch url.pathExtension.lowercased() {
         case "pdf":
-            windows.open(.pdf, payload: url, title: url.lastPathComponent)
+            windows.open(.preview, payload: url, title: url.lastPathComponent)
+        case "png", "jpg", "jpeg", "heic", "gif", "tiff", "webp":
+            windows.open(.preview, payload: url, title: url.lastPathComponent)
         case "mp4", "mov", "m4v":
             windows.open(.video, payload: url, title: url.lastPathComponent)
         case "txt", "md":

@@ -4,8 +4,11 @@ import SwiftUI
 enum DesktopLayer {
     static let dock: Double = 1_000_000_000
     static let menuBar: Double = 1_000_000_001
-    static let spotlight: Double = 1_000_000_002
-    static let pointer: Double = 1_000_000_003
+    static let menuDropdown: Double = 1_000_000_002
+    static let launchpad: Double = 1_000_000_003
+    static let switcher: Double = 1_000_000_004
+    static let spotlight: Double = 1_000_000_005
+    static let pointer: Double = 1_000_000_006
 }
 
 /// The virtual desktop at its full resolution (`WindowManager.desktopSize`).
@@ -37,6 +40,8 @@ struct DesktopView: View {
                 if session.spotlightVisible { session.spotlightVisible = false }
             }
 
+            DesktopIconsLayer(session: session, desktop: size)
+
             ForEach(windows.windows) { window in
                 WindowView(
                     window: window,
@@ -52,6 +57,15 @@ struct DesktopView: View {
             MenuBarView(session: session, windows: windows)
                 .frame(width: size.width, height: WindowMetrics.menuBarHeight)
                 .zIndex(DesktopLayer.menuBar)
+
+            MenuDropdownLayer(session: session, desktop: size)
+                .zIndex(DesktopLayer.menuDropdown)
+
+            LaunchpadLayer(session: session, desktop: size)
+                .zIndex(DesktopLayer.launchpad)
+
+            SwitcherLayer(session: session, windows: windows)
+                .zIndex(DesktopLayer.switcher)
 
             SpotlightLayer(session: session, desktop: size, interactive: live)
                 .zIndex(DesktopLayer.spotlight)

@@ -39,7 +39,7 @@ enum DemoMode {
             case "files":
                 windows.toggleMaximize(windows.open(.files))
             case "pdf":
-                windows.toggleMaximize(windows.open(.pdf, payload: pdfURL, title: "Welcome.pdf"))
+                windows.toggleMaximize(windows.open(.preview, payload: pdfURL, title: "Welcome.pdf"))
             case "notes":
                 windows.toggleMaximize(windows.open(.notes))
             case "calculator":

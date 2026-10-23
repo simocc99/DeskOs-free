@@ -89,7 +89,7 @@ final class SpotlightEngineTests: XCTestCase {
 
     func testFilesAndWindowsAreSearched() {
         let wm = WindowManager()
-        let id = wm.open(.pdf, title: "Invoice.pdf")
+        let id = wm.open(.preview, title: "Invoice.pdf")
         let files = [URL(fileURLWithPath: "/tmp/Holiday.mov"), URL(fileURLWithPath: "/tmp/Invoice.pdf")]
         let results = SpotlightEngine.search("invoice", windows: wm.windows, files: files)
         XCTAssertTrue(results.contains { $0.kind == .window(id) })

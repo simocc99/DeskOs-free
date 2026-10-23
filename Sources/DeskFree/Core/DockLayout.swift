@@ -2,6 +2,7 @@ import SwiftUI
 
 enum DockItem: Hashable {
     case tool(ToolKind)
+    case launchpad
     case minimized(UUID)
 }
 
@@ -23,13 +24,13 @@ struct DockLayout {
     let iconSize: CGFloat
     let entries: [DockEntry]
     let background: CGRect
-    /// X position of the divider between pinned tools and minimised windows.
+    /// X position of the divider between pinned items and minimised windows.
     let dividerX: CGFloat?
 
     init(desktop: CGSize, preferredIconSize: CGFloat, minimized: [UUID]) {
-        let tools = ToolKind.allCases.map { DockItem.tool($0) }
+        let pinned: [DockItem] = ToolKind.allCases.map { DockItem.tool($0) } + [DockItem.launchpad]
         let minis = minimized.map { DockItem.minimized($0) }
-        let items = tools + minis
+        let items = pinned + minis
         let count = CGFloat(items.count)
         let divider: CGFloat = minis.isEmpty ? 0 : Self.dividerWidth
         let gaps = Self.spacing * (count - 1)
@@ -48,7 +49,7 @@ struct DockLayout {
         var result: [DockEntry] = []
         var dividerPosition: CGFloat?
         for (index, item) in items.enumerated() {
-            if index == tools.count, !minis.isEmpty {
+            if index == pinned.count, !minis.isEmpty {
                 dividerPosition = x + divider / 2 - 2
                 x += divider
             }

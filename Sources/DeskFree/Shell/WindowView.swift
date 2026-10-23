@@ -149,7 +149,7 @@ struct ToolContentView: View {
         switch window.tool {
         case .browser: BrowserWindowView(window: window)
         case .files: FilesWindowView(window: window)
-        case .pdf: PDFWindowView(window: window)
+        case .preview: PreviewWindowView(window: window)
         case .video: VideoWindowView(window: window)
         case .notes: NotesWindowView(window: window)
         case .calculator: CalculatorWindowView(window: window)

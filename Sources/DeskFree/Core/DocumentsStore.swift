@@ -70,6 +70,28 @@ enum DocumentsStore {
         return files
     }
 
+    /// Creates (once) a short text file explaining the basics; returns its URL.
+    @discardableResult
+    static func ensureWelcomeFile() -> URL {
+        let url = root.appendingPathComponent("Welcome to DeskFree.txt")
+        if !FileManager.default.fileExists(atPath: url.path) {
+            try? welcomeText.write(to: url, atomically: true, encoding: .utf8)
+        }
+        return url
+    }
+
+    private static let welcomeText = """
+    Welcome to DeskFree
+    Your iPhone, with a desktop.
+
+    - Tap a Dock icon to open an app; tap it again to minimise.
+    - Drag a window by its title bar, resize it from the edges.
+    - Green button (or double-tap the title bar) maximises.
+    - Magnifier in the menu bar: search apps, files and the web.
+    - Launchpad (last Dock icon) shows every app.
+    - Plug in a display (USB-C / HDMI / AirPlay): your phone becomes a trackpad.
+    """
+
     static func customWallpaper() -> UIImage? {
         UIImage(contentsOfFile: wallpaperURL.path)
     }

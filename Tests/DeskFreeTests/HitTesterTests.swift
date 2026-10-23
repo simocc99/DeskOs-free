@@ -79,7 +79,7 @@ final class HitTesterTests: XCTestCase {
     func testDockShrinksIconsOnNarrowDesktops() {
         let layout = DockLayout(desktop: CGSize(width: 390, height: 700), preferredIconSize: 52, minimized: [])
         XCTAssertLessThan(layout.iconSize, 52)
-        XCTAssertEqual(layout.entries.count, ToolKind.allCases.count)
+        XCTAssertEqual(layout.entries.count, ToolKind.allCases.count + 1) // + Launchpad
         XCTAssertGreaterThanOrEqual(layout.background.minX, 0)
         XCTAssertLessThanOrEqual(layout.background.maxX, 390)
     }
@@ -87,8 +87,54 @@ final class HitTesterTests: XCTestCase {
     func testDockListsMinimisedWindowsAfterADivider() {
         let ids = [UUID(), UUID()]
         let layout = DockLayout(desktop: CGSize(width: 1280, height: 720), preferredIconSize: 52, minimized: ids)
-        XCTAssertEqual(layout.entries.count, ToolKind.allCases.count + 2)
+        XCTAssertEqual(layout.entries.count, ToolKind.allCases.count + 3) // + Launchpad + 2 minimised
         XCTAssertNotNil(layout.dividerX)
         XCTAssertEqual(layout.entries.last?.item, .minimized(ids[1]))
+    }
+
+    func testLaunchpadAndSwitcherCaptureClicks() throws {
+        let desktop = CGSize(width: 1280, height: 720)
+        let wm = WindowManager(desktopSize: desktop)
+        let id = wm.open(.notes)
+        let dock = DockLayout(desktop: desktop, preferredIconSize: 52, minimized: [])
+
+        let cell = try XCTUnwrap(LaunchpadLayout.frames(desktop: desktop).first)
+        var tester = HitTester(desktop: desktop, windows: wm.windows, dock: dock, overlay: .launchpad)
+        XCTAssertEqual(tester.hit(CGPoint(x: cell.frame.midX, y: cell.frame.midY)), .launchpadApp(cell.tool))
+        XCTAssertEqual(tester.hit(CGPoint(x: 2, y: 2)), .launchpadBackground)
+
+        tester.overlay = .switcher([id])
+        let card = try XCTUnwrap(SwitcherLayout.cards(desktop: desktop, count: 1).first)
+        XCTAssertEqual(tester.hit(CGPoint(x: card.midX, y: card.midY)), .switcherCard(id))
+        XCTAssertEqual(tester.hit(CGPoint(x: 2, y: 700)), .switcherBackground)
+    }
+
+    func testMenuTitlesRowsAndDismiss() throws {
+        let desktop = CGSize(width: 1280, height: 720)
+        let wm = WindowManager(desktopSize: desktop)
+        let dock = DockLayout(desktop: desktop, preferredIconSize: 52, minimized: [])
+        let menus = [
+            DesktopMenu(title: "File", entries: [MenuEntry(title: "New"), .separator, MenuEntry(title: "Close")]),
+            DesktopMenu(title: "Edit", entries: [MenuEntry(title: "Undo")])
+        ]
+        let closed = MenuLayout(appName: "Files", menus: menus, openIndex: nil, desktop: desktop)
+        var tester = HitTester(desktop: desktop, windows: [], dock: dock, menu: closed)
+        let edit = closed.titleFrames[1]
+        XCTAssertEqual(tester.hit(CGPoint(x: edit.midX, y: edit.midY)), .menuTitle(1))
+
+        let open = MenuLayout(appName: "Files", menus: menus, openIndex: 0, desktop: desktop)
+        tester.menu = open
+        let row = open.rowFrames[2]
+        XCTAssertEqual(tester.hit(CGPoint(x: row.midX, y: row.midY)), .menuRow(menu: 0, row: 2))
+        XCTAssertEqual(tester.hit(CGPoint(x: 900, y: 400)), .menuDismiss)
+        _ = wm
+    }
+
+    func testDesktopIconsAreClickable() throws {
+        let desktop = CGSize(width: 1280, height: 720)
+        let dock = DockLayout(desktop: desktop, preferredIconSize: 52, minimized: [])
+        let tester = HitTester(desktop: desktop, windows: [], dock: dock)
+        let item = try XCTUnwrap(DesktopIconLayout.frames(desktop: desktop).first)
+        XCTAssertEqual(tester.hit(CGPoint(x: item.frame.midX, y: item.frame.midY)), .desktopIcon(item.icon))
     }
 }

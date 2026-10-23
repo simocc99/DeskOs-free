@@ -148,7 +148,9 @@ final class BrowserModel: ObservableObject, PointerInteractive, KeyInputTarget {
             case 0: tab.webView.goBack()
             case 1: tab.webView.goForward()
             case 2: if tab.isLoading { tab.webView.stopLoading() } else { tab.webView.reload() }
-            default: addressDraft = ""
+            default:
+                addressDraft = ""
+                DeskSession.shared.requestKeyboard()
             }
         } else {
             let x = point.x

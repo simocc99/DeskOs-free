@@ -85,6 +85,14 @@ struct DockView: View {
             }
             .buttonStyle(DockButtonStyle())
             .accessibilityLabel(tool.title)
+        case .launchpad:
+            Button {
+                DeskSession.shared.toggleLaunchpad()
+            } label: {
+                LaunchpadIconView(size: iconSize)
+            }
+            .buttonStyle(DockButtonStyle())
+            .accessibilityLabel("Launchpad")
         case .minimized(let id):
             if let window = windows.window(id) {
                 Button {

@@ -10,6 +10,8 @@ struct TrackpadSurface: UIViewRepresentable {
     var onTap: () -> Void
     var onDragBegan: () -> Void
     var onDragEnded: () -> Void
+    var onPinch: (CGFloat) -> Void = { _ in }
+    var onThreeFingerSwipe: () -> Void = {}
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -36,6 +38,19 @@ struct TrackpadSurface: UIViewRepresentable {
         hold.minimumPressDuration = 0.35
         hold.allowableMovement = 10_000
 
+        let pinch = UIPinchGestureRecognizer(target: c, action: #selector(Coordinator.handlePinch(_:)))
+
+        let swipe = UIPanGestureRecognizer(target: c, action: #selector(Coordinator.handleThreeFinger(_:)))
+        swipe.minimumNumberOfTouches = 3
+        swipe.maximumNumberOfTouches = 3
+
+        scroll.delegate = c
+        pinch.delegate = c
+        c.scroll = scroll
+        c.pinch = pinch
+
+        view.addGestureRecognizer(pinch)
+        view.addGestureRecognizer(swipe)
         view.addGestureRecognizer(pan)
         view.addGestureRecognizer(scroll)
         view.addGestureRecognizer(tap)
@@ -47,8 +62,10 @@ struct TrackpadSurface: UIViewRepresentable {
         context.coordinator.parent = self
     }
 
-    final class Coordinator: NSObject {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var parent: TrackpadSurface
+        weak var scroll: UIGestureRecognizer?
+        weak var pinch: UIGestureRecognizer?
         private var lastHold: CGPoint?
         private let feedback = UIImpactFeedbackGenerator(style: .light)
 
@@ -63,6 +80,28 @@ struct TrackpadSurface: UIViewRepresentable {
             let v = g.velocity(in: g.view)
             let acceleration = 1 + min(hypot(v.x, v.y) / 1800, 1.2)
             parent.onMove(CGPoint(x: t.x * acceleration, y: t.y * acceleration))
+        }
+
+        func gestureRecognizer(
+            _ gestureRecognizer: UIGestureRecognizer,
+            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+        ) -> Bool {
+            // Two-finger scroll and pinch may happen together.
+            (gestureRecognizer === scroll && other === pinch) || (gestureRecognizer === pinch && other === scroll)
+        }
+
+        @objc func handlePinch(_ g: UIPinchGestureRecognizer) {
+            guard g.state == .changed else { return }
+            parent.onPinch(g.scale)
+            g.scale = 1
+        }
+
+        @objc func handleThreeFinger(_ g: UIPanGestureRecognizer) {
+            guard g.state == .ended else { return }
+            if g.translation(in: g.view).y < -40 {
+                feedback.impactOccurred()
+                parent.onThreeFingerSwipe()
+            }
         }
 
         @objc func handleScroll(_ g: UIPanGestureRecognizer) {

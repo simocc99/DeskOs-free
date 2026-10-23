@@ -2,7 +2,7 @@ import SwiftUI
 
 enum MenuBarMetrics {
     static let logoWidth: CGFloat = 46
-    static let clockWidth: CGFloat = 150
+    static let clockWidth: CGFloat = 100
     static let searchWidth: CGFloat = 36
 
     static func logoRect() -> CGRect {
@@ -21,9 +21,18 @@ enum MenuBarMetrics {
 
 enum HitTarget: Equatable {
     case desktop
+    case desktopIcon(DesktopIcon)
     case menuLogo
     case menuSearch
     case menuBar
+    case menuTitle(Int)
+    case menuRow(menu: Int, row: Int)
+    /// Click outside an open menu: closes it.
+    case menuDismiss
+    case launchpadApp(ToolKind)
+    case launchpadBackground
+    case switcherCard(UUID)
+    case switcherBackground
     case dock(DockItem)
     case dockBackground
     case windowClose(UUID)
@@ -41,10 +50,42 @@ struct HitTester {
     var desktop: CGSize
     var windows: [DeskWindow]
     var dock: DockLayout
+    var overlay: DesktopOverlay = .none
+    var menu: MenuLayout?
 
     func hit(_ p: CGPoint) -> HitTarget {
+        switch overlay {
+        case .launchpad:
+            for cell in LaunchpadLayout.frames(desktop: desktop) where cell.frame.contains(p) {
+                return .launchpadApp(cell.tool)
+            }
+            return .launchpadBackground
+        case .switcher(let ids):
+            let cards = SwitcherLayout.cards(desktop: desktop, count: ids.count)
+            for (index, card) in cards.enumerated() {
+                let full = card.insetBy(dx: -6, dy: -6).union(CGRect(x: card.minX, y: card.maxY, width: card.width, height: SwitcherLayout.labelHeight))
+                if full.contains(p) { return .switcherCard(ids[index]) }
+            }
+            return .switcherBackground
+        case .none:
+            break
+        }
+
+        if let menu, menu.openIndex != nil {
+            for (index, row) in menu.rowFrames.enumerated() where row.contains(p) {
+                return .menuRow(menu: menu.openIndex ?? 0, row: index)
+            }
+            if let dropdown = menu.dropdown, dropdown.contains(p) { return .menuBar }
+            if p.y > WindowMetrics.menuBarHeight { return .menuDismiss }
+        }
+
         if p.y <= WindowMetrics.menuBarHeight {
             if MenuBarMetrics.logoRect().contains(p) { return .menuLogo }
+            if let menu {
+                for (index, frame) in menu.titleFrames.enumerated() where frame.contains(p) {
+                    return .menuTitle(index)
+                }
+            }
             if MenuBarMetrics.searchRect(desktop: desktop).contains(p) { return .menuSearch }
             return .menuBar
         }
@@ -60,6 +101,10 @@ struct HitTester {
         let ordered = windows.filter { !$0.isMinimized }.sorted { $0.z > $1.z }
         for window in ordered {
             if let target = hit(window, at: p) { return target }
+        }
+
+        for item in DesktopIconLayout.frames(desktop: desktop) where item.frame.contains(p) {
+            return .desktopIcon(item.icon)
         }
         return .desktop
     }
