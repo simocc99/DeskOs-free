@@ -14,7 +14,7 @@ final class WindowManagerTests: XCTestCase {
         XCTAssertEqual(wm.frontmostID, b)
     }
 
-    func testOpenKeepsTheWindowInsideTheUsableArea() {
+    func testOpenKeepsTheWindowInsideTheUsableArea() throws {
         let wm = makeManager()
         let id = wm.open(.browser)
         let frame = try XCTUnwrap(wm.window(id)?.frame)
