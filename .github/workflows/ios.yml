@@ -25,10 +25,12 @@ jobs:
       - name: Build & test
         run: |
           set +e
+          xcrun simctl list devices available | head -40
+          UDID=$(.github/scripts/pick-simulator.sh)
           xcodebuild test \
             -project DeskFree.xcodeproj \
             -scheme DeskFree \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination "id=$UDID" \
             -derivedDataPath build/sim \
             CODE_SIGNING_ALLOWED=NO > build.log 2>&1
           status=$?

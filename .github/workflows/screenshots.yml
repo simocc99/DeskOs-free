@@ -24,19 +24,22 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      - name: Pick simulator
+        run: echo "UDID=$(.github/scripts/pick-simulator.sh)" >> "$GITHUB_ENV"
+
       - name: Build for the simulator
         run: |
           xcodebuild build \
             -project DeskFree.xcodeproj \
             -scheme DeskFree \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination "id=$UDID" \
             -derivedDataPath build/sim \
             CODE_SIGNING_ALLOWED=NO -quiet
 
       - name: Boot simulator
         run: |
-          xcrun simctl boot "iPhone 16" || true
-          xcrun simctl bootstatus "iPhone 16" -b
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
 
       - name: Launch and capture
         run: |
