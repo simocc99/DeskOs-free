@@ -14,7 +14,7 @@ DeskFree is an **independent project**. It is inspired by the idea behind "iPhon
 <table>
   <tr>
     <td><img src="docs/screenshots/files.jpg" alt="Files"></td>
-    <td><img src="docs/screenshots/pdf.jpg" alt="PDF Studio"></td>
+    <td><img src="docs/screenshots/pdf.jpg" alt="Preview"></td>
   </tr>
   <tr>
     <td><img src="docs/screenshots/notes.jpg" alt="Notes"></td>
@@ -80,7 +80,7 @@ Every push to `main` is built by GitHub Actions. The workflow uploads **`DeskFre
 - **Maximise:** green button, or double-tap the title bar.
 - **Search:** magnifier in the menu bar.
 - **Files:** put files in *DeskFree* via the iOS Files app, or use *Import Files…*. Double-tap a PDF, picture, text file or video to open it in the right tool.
-- **Big screen:** connect a display. The desktop moves to it and the phone shows the trackpad. **Touch** switches back to driving the desktop with your fingers; **Keyboard** opens the iOS keyboard and sends your typing to the search box, the browser address bar, Notes or the Calculator; **Desktop** minimises/restores every window.
+- **Big screen:** connect a display. The desktop moves to it and the phone shows the trackpad. **Touch** switches back to driving the desktop with your fingers; **Spotlight**, **Address**, **Windows** and **Preview** are quick actions; the iOS keyboard appears when you click a text field and sends your typing to the search box, the browser address bar, Notes or the Calculator.
 
 ## Continuous integration
 
