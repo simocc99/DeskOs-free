@@ -71,6 +71,7 @@ struct ControllerView: View {
             VStack(spacing: 3) {
                 Image(systemName: symbol)
                     .font(.system(size: 17, weight: .semibold))
+                    .frame(height: 24)
                 Text(title)
                     .font(.system(size: 11, weight: .medium))
             }

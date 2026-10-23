@@ -69,7 +69,7 @@ private struct SpotlightView: View {
                     .strokeBorder(Color.white.opacity(0.2), lineWidth: 0.6)
             )
             .shadow(color: .black.opacity(0.4), radius: 30, y: 12)
-            .padding(.top, WindowMetrics.menuBarHeight + 40)
+            .padding(.top, desktop.height < 500 ? WindowMetrics.menuBarHeight + 6 : WindowMetrics.menuBarHeight + 40)
         }
         .frame(width: desktop.width, height: desktop.height)
         .onAppear { focused = interactive }

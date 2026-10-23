@@ -106,46 +106,51 @@ struct CalculatorWindowView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .trailing, spacing: 2) {
-                Spacer(minLength: 0)
-                Text(model.expression.isEmpty ? " " : model.expression)
-                    .font(.system(size: 15))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                Text(model.preview)
-                    .font(.system(size: 40, weight: .light))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.4)
-            }
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .frame(height: 96)
-            .padding(.horizontal, 14)
+        GeometryReader { geo in
+            let displayHeight = min(96, max(44, geo.size.height * 0.2))
+            let keyHeight = max(22, (geo.size.height - displayHeight - 16 - 5 * 6) / 6)
+            VStack(spacing: 0) {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Spacer(minLength: 0)
+                    Text(model.expression.isEmpty ? " " : model.expression)
+                        .font(.system(size: 15))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                    Text(model.preview)
+                        .font(.system(size: min(40, displayHeight * 0.45), weight: .light))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .frame(height: displayHeight)
+                .padding(.horizontal, 14)
 
-            VStack(spacing: 6) {
-                ForEach(rows, id: \.self) { row in
-                    HStack(spacing: 6) {
-                        ForEach(row, id: \.self) { key in
-                            keyButton(key)
+                VStack(spacing: 6) {
+                    ForEach(rows, id: \.self) { row in
+                        HStack(spacing: 6) {
+                            ForEach(row, id: \.self) { key in
+                                keyButton(key, height: keyHeight)
+                            }
                         }
                     }
                 }
+                .padding(8)
             }
-            .padding(8)
         }
         .background(Color(uiColor: .secondarySystemBackground))
     }
 
-    private func keyButton(_ key: String) -> some View {
+    private func keyButton(_ key: String, height: CGFloat) -> some View {
         let isOperator = ["÷", "×", "−", "+", "="].contains(key)
         let isFunction = ["(", ")", "^", "√", "AC", "⌫", "%", "π"].contains(key)
         return Button {
             model.press(key)
         } label: {
             Text(key)
-                .font(.system(size: 20, weight: isOperator ? .semibold : .regular))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .font(.system(size: min(20, height * 0.5), weight: isOperator ? .semibold : .regular))
+                .frame(maxWidth: .infinity)
+                .frame(height: height)
                 .foregroundStyle(isOperator ? Color.white : Color.primary)
                 .background(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
