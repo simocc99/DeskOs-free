@@ -8,6 +8,7 @@ on:
     branches: ["claude/**"]
     paths:
       - ".github/workflows/screenshots.yml"
+      - "Sources/**"
 
 permissions:
   contents: write
@@ -50,13 +51,16 @@ jobs:
           capture() {
             name="$1"; shift
             xcrun simctl launch booted com.simocc99.deskfree "$@"
-            sleep 10
+            sleep 8
             xcrun simctl io booted screenshot --type=png "shots/$name.png"
+            case "$name" in landscape*) sips --rotate 270 "shots/$name.png" >/dev/null ;; esac
             xcrun simctl terminate booted com.simocc99.deskfree
           }
 
-          capture landscape -deskfree-demo -deskfree-landscape
           capture portrait -deskfree-demo
+          for scene in windows browser files pdf notes calculator settings video spotlight; do
+            capture "landscape-$scene" -deskfree-demo -deskfree-landscape -deskfree-scene "$scene"
+          done
           ls -la shots
 
       - name: Publish screenshots to the ci-screenshots branch

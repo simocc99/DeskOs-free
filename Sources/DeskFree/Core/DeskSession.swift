@@ -154,13 +154,13 @@ final class DeskSession: ObservableObject {
         let settings = DeskSettings()
         self.settings = settings
         self.windows = WindowManager()
-        windows.dockReserved = DockLayout.reservedHeight(forIcon: CGFloat(settings.dockIconSize))
+        windows.dockIconPreference = CGFloat(settings.dockIconSize)
 
         settings.$dockIconSize
             .dropFirst()
             .sink { [weak self] size in
                 guard let self else { return }
-                self.windows.dockReserved = DockLayout.reservedHeight(forIcon: CGFloat(size))
+                self.windows.dockIconPreference = CGFloat(size)
                 self.windows.refit()
             }
             .store(in: &cancellables)

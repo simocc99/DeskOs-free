@@ -46,8 +46,8 @@ enum WindowMetrics {
 final class WindowManager: ObservableObject {
     @Published private(set) var windows: [DeskWindow] = []
     @Published private(set) var desktopSize: CGSize
-    /// Height reserved at the bottom for the Dock (maximised windows stop above it).
-    @Published var dockReserved: CGFloat = 84
+    /// Preferred Dock icon size; the Dock may shrink on small desktops.
+    @Published var dockIconPreference: CGFloat = 52
 
     private var zCounter = 0
     private var openedCount = 0
@@ -57,6 +57,12 @@ final class WindowManager: ObservableObject {
     }
 
     // MARK: - Queries
+
+    /// Height reserved at the bottom for the Dock (maximised windows stop above it).
+    var dockReserved: CGFloat {
+        let dock = DockLayout(desktop: desktopSize, preferredIconSize: dockIconPreference, minimized: [])
+        return DockLayout.reservedHeight(forIcon: dock.iconSize)
+    }
 
     var usableArea: CGRect {
         let top = WindowMetrics.menuBarHeight

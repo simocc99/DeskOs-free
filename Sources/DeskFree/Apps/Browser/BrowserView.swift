@@ -208,8 +208,9 @@ private struct BrowserStartPage: View {
 
     var body: some View {
         if tab.url == nil && !tab.isLoading {
-            ZStack {
+            ZStack(alignment: .top) {
                 Color(uiColor: .systemBackground)
+                ScrollView {
                 VStack(spacing: 18) {
                     Text("Favorites")
                         .font(.system(size: 13, weight: .semibold))
@@ -235,6 +236,9 @@ private struct BrowserStartPage: View {
                     }
                     .padding(.horizontal, 24)
                     .frame(maxWidth: 460)
+                }
+                .padding(.vertical, 20)
+                .frame(maxWidth: .infinity)
                 }
             }
         }

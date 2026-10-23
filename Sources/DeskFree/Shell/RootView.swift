@@ -17,7 +17,7 @@ struct RootView: View {
             ZStack {
                 switch layout {
                 case .touchDesktop:
-                    ScaledDesktop(session: session, windows: windows, live: session.liveHost == .phone)
+                    ScaledDesktop(session: session, windows: windows, live: session.liveHost == .phone, drawsWallpaper: false)
                 case .controller:
                     ControllerView(
                         session: session,

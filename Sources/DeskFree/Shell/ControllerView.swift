@@ -76,7 +76,7 @@ struct ControllerView: View {
             }
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+            .frame(height: 56)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(highlighted ? Color.accentColor : Color.white.opacity(0.14))

@@ -17,16 +17,25 @@ struct DesktopView: View {
     /// `false` renders lightweight placeholders instead of the real tool contents, used
     /// by the screen that is *not* the one currently hosting the live tools.
     let live: Bool
+    /// The phone's touch desktop lets the full-screen background show through instead,
+    /// so there is no seam around the safe area.
+    var drawsWallpaper = true
 
     var body: some View {
         let size = windows.desktopSize
         ZStack(alignment: .topLeading) {
-            WallpaperView(wallpaper: settings.wallpaper, revision: settings.customWallpaperRevision)
-                .frame(width: size.width, height: size.height)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    if session.spotlightVisible { session.spotlightVisible = false }
+            Group {
+                if drawsWallpaper {
+                    WallpaperView(wallpaper: settings.wallpaper, revision: settings.customWallpaperRevision)
+                } else {
+                    Color.clear
                 }
+            }
+            .frame(width: size.width, height: size.height)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if session.spotlightVisible { session.spotlightVisible = false }
+            }
 
             ForEach(windows.windows) { window in
                 WindowView(
@@ -61,12 +70,13 @@ struct ScaledDesktop: View {
     let session: DeskSession
     @ObservedObject var windows: WindowManager
     let live: Bool
+    var drawsWallpaper = true
 
     var body: some View {
         GeometryReader { geo in
             let size = windows.desktopSize
             let scale = min(geo.size.width / size.width, geo.size.height / size.height)
-            DesktopView(session: session, windows: windows, settings: session.settings, live: live)
+            DesktopView(session: session, windows: windows, settings: session.settings, live: live, drawsWallpaper: drawsWallpaper)
                 .frame(width: size.width, height: size.height)
                 .scaleEffect(scale, anchor: .topLeading)
                 .frame(width: size.width * scale, height: size.height * scale, alignment: .topLeading)

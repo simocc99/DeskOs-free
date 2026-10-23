@@ -35,7 +35,7 @@ struct DockLayout {
         let gaps = Self.spacing * (count - 1)
         let available = max(120, desktop.width - 2 * Self.padding - 24)
 
-        var icon = preferredIconSize
+        var icon = Self.effectiveIconSize(preferred: preferredIconSize, desktop: desktop)
         if count * icon + gaps + divider > available {
             icon = max(22, (available - gaps - divider) / count)
         }
@@ -65,6 +65,11 @@ struct DockLayout {
             width: total,
             height: icon + 2 * Self.verticalPadding
         )
+    }
+
+    /// Short desktops (a phone in landscape) get a smaller Dock so windows keep their room.
+    static func effectiveIconSize(preferred: CGFloat, desktop: CGSize) -> CGFloat {
+        min(preferred, max(32, desktop.height * 0.115))
     }
 
     /// Space the Dock occupies at the bottom of the desktop.

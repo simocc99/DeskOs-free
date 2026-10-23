@@ -13,17 +13,22 @@ struct WindowView: View {
         ZStack(alignment: .topLeading) {
             VStack(spacing: 0) {
                 titleBar
-                ZStack {
-                    content
-                    if !isFront {
-                        // First click only brings the window to the front, like on a desktop.
-                        Color.clear
-                            .contentShape(Rectangle())
-                            .onTapGesture { windows.focus(window.id) }
+                // The content is an overlay so that, however tall it wants to be, it can never
+                // change the size of the window or push the title bar out of it.
+                Color.clear
+                    .overlay(alignment: .topLeading) {
+                        ZStack {
+                            content
+                            if !isFront {
+                                // First click only brings the window to the front, like on a desktop.
+                                Color.clear
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { windows.focus(window.id) }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
+                    .clipped()
             }
             .frame(width: f.width, height: f.height)
             .background(Color(uiColor: .systemBackground))
