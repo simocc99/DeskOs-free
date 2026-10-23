@@ -28,7 +28,10 @@ struct RootView: View {
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)
-            .onAppear { sync(geo.size) }
+            .onAppear {
+                sync(geo.size)
+                DemoMode.runIfRequested(session: session)
+            }
             .onChange(of: geo.size) { sync(geo.size) }
             .onChange(of: layout) { sync(geo.size) }
             .onChange(of: settings.resolution) { sync(geo.size) }
