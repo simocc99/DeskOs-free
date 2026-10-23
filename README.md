@@ -7,6 +7,27 @@ Floating, resizable windows, a Dock, desktop search, a browser, a file manager, 
 
 DeskFree is an **independent project**. It is inspired by the idea behind "iPhone desktop" apps, but it is written from scratch: no code, artwork, icons or text from any commercial app are used, and it is not affiliated with or endorsed by any of them.
 
+<p align="center">
+  <img src="docs/screenshots/desktop.jpg" width="640" alt="DeskFree desktop on an iPhone in landscape">
+</p>
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/files.jpg" alt="Files"></td>
+    <td><img src="docs/screenshots/pdf.jpg" alt="PDF Studio"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/notes.jpg" alt="Notes"></td>
+    <td><img src="docs/screenshots/settings.jpg" alt="Settings"></td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/screenshots/trackpad.jpg" width="260" alt="Portrait: live desktop preview above a trackpad">
+</p>
+
+*Screenshots are real captures of the app running in the iPhone simulator on GitHub Actions (see the `Screenshots` workflow).*
+
 ---
 
 ## Features
@@ -50,7 +71,7 @@ xcodebuild test -project DeskFree.xcodeproj -scheme DeskFree \
 
 ### No Mac? Use the CI build
 
-Every push to `main` is built by GitHub Actions. The workflow uploads **`DeskFree-unsigned.ipa`** as a build artifact (Actions → latest run → *Artifacts*). Unsigned IPAs can be installed with sideloading tools such as AltStore or Sideloadly, which sign the app with your own Apple ID.
+Every push to `main` is built by GitHub Actions. The workflow uploads **`DeskFree-unsigned.ipa`** as a build artifact (Actions → latest run → *Artifacts*). Unsigned IPAs are meant to be installed with sideloading tools such as AltStore or Sideloadly, which sign the app with your own Apple ID (this path has not been tested yet).
 
 ## Using it
 
@@ -60,6 +81,11 @@ Every push to `main` is built by GitHub Actions. The workflow uploads **`DeskFre
 - **Search:** magnifier in the menu bar.
 - **Files:** put files in *DeskFree* via the iOS Files app, or use *Import Files…*. Double-tap a PDF or video to open it in the right tool.
 - **Big screen:** connect a display. The desktop moves to it and the phone shows the trackpad. **Touch** switches back to driving the desktop with your fingers; **Keyboard** opens the iOS keyboard and sends your typing to the search box, the browser address bar, Notes or the Calculator; **Desktop** minimises/restores every window.
+
+## Continuous integration
+
+- **iOS** (`.github/workflows/ios.yml`): generates the project, builds, runs the unit tests on an iPhone simulator and builds the unsigned IPA.
+- **Screenshots** (`.github/workflows/screenshots.yml`, run manually): launches the app in the simulator with demo launch arguments (`-deskfree-demo -deskfree-scene files` …) and publishes screenshots to a throw-away `ci-screenshots` branch.
 
 ## Project layout
 
@@ -71,14 +97,15 @@ Sources/DeskFree/
   Apps/    Browser, Files, PDF, Video, Notes, Calculator, Settings
   App/     entry point and the external-display scene
 Tests/DeskFreeTests/        unit tests for the logic above
-.github/workflows/ios.yml   build + test on a macOS runner, unsigned IPA artifact
+.github/workflows/          build + test on a macOS runner, unsigned IPA artifact, screenshots
+docs/screenshots/           images used in this README
 ```
 
 The window manager, Dock layout and pointer hit-testing are plain value-based Swift with no UIKit dependency, so the trackpad pointer and the touch UI always agree on what is clickable.
 
 ## Known limitations (v0.1)
 
-- **Not yet tested on a physical external display.** The external-display scene follows Apple's documented API, but it has only been built and unit-tested in CI. Please open an issue with your findings.
+- **Not yet tested on real hardware.** Everything is built, unit-tested and screenshotted in the iPhone *simulator* on CI. The external-display scene follows Apple's documented API and the trackpad gestures are implemented, but neither has been exercised on a physical phone with a physical display. Please open an issue with your findings.
 - With the desktop on a big screen, the **pointer can move/resize/close windows, use the Dock and search, and click and scroll inside the Browser**, and scroll PDFs. Clicking inside other apps' content (Files, Video timeline, …) needs the **Touch** button for now.
 - System pickers (file importer, Photos, share sheet) are always shown on the phone.
 - iPhone only; no iPad layout yet.

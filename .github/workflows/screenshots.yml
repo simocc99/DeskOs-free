@@ -4,11 +4,6 @@ name: Screenshots
 # them to the throw-away `ci-screenshots` branch so the UI can be reviewed without a Mac.
 on:
   workflow_dispatch:
-  push:
-    branches: ["claude/**"]
-    paths:
-      - ".github/workflows/screenshots.yml"
-      - "Sources/**"
 
 permissions:
   contents: write
