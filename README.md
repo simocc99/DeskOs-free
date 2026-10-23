@@ -18,7 +18,7 @@ DeskFree is an **independent project**. It is inspired by the idea behind "iPhon
   </tr>
   <tr>
     <td><img src="docs/screenshots/notes.jpg" alt="Notes"></td>
-    <td><img src="docs/screenshots/settings.jpg" alt="Settings"></td>
+    <td><img src="docs/screenshots/launchpad.jpg" alt="Launchpad"></td>
   </tr>
 </table>
 
@@ -34,16 +34,16 @@ DeskFree is an **independent project**. It is inspired by the idea behind "iPhon
 
 | | |
 |---|---|
-| **Desktop shell** | Menu bar with clock/battery, frosted Dock with running indicators, wallpapers (6 built-in + your own photo) |
+| **Desktop shell** | Menu bar with real **File / Edit / Window / Help** menus, clock and battery; frosted Dock with running indicators; **Launchpad**; desktop shortcuts; **all-windows switcher**; wallpapers (6 built-in + your own photo) |
 | **Windows** | Drag by the title bar, resize from any edge or corner, minimise to the Dock, maximise (button or double-tap the title bar), click-to-focus stacking |
 | **Search** | Spotlight-style search for apps, open windows, files in *Documents*, quick maths (`12*(3+4)`), web search or a URL |
-| **Browser** | WebKit, desktop-class sites, tabs, address bar with search, progress bar, favourites page |
-| **Files** | Browse the app's *Documents* (also visible in the iOS Files app), grid/list, thumbnails, import, new folder, rename, duplicate, share, delete |
-| **PDF Studio** | PDFKit viewer with page thumbnails; highlight, underline, strikethrough, freehand pen, text, eraser, undo; save / save a copy / share |
+| **Browser** | WebKit, desktop-class sites, tabs, address bar with search, progress bar, **bookmarks** |
+| **Files** | Sidebar with Recents, Desktop, Documents, Downloads, **linked external folders** (iCloud Drive etc.) and a real **Trash**; grid/list, thumbnails, import, new folder, rename, duplicate, share |
+| **Preview** | PDFs and pictures. PDF: thumbnails, highlight, underline, strikethrough, pen, text, eraser, undo, zoom, print. Pictures: rotate, zoom, save a copy, save to Photos, share |
 | **Video Editor** | Import from Files or Photos, timeline with thumbnails, trim handles, speed (0.5–2×), filters, mute, 720p/1080p/best export to *Documents/Exports* |
-| **Notes** | Multiple notes, search, autosave |
+| **Notes** | Plain-text editor for `.txt` / `.md` files in Documents: autosave, undo/redo, indent, export |
 | **Calculator** | Expressions with parentheses, powers, percent, √ and π |
-| **Big screen mode** | Plug in a display over USB-C / HDMI / AirPlay: the desktop appears on it at up to 2560 × 1440 and the iPhone becomes a trackpad (move, tap-to-click, hold-and-move to drag, two-finger scroll) with a keyboard and quick actions |
+| **Big screen mode** | Plug in a display over USB-C / HDMI / AirPlay: the desktop appears on it at up to 2560 × 1440 and the iPhone becomes a trackpad (move, tap-to-click, hold-and-move to drag, two-finger scroll) with quick actions (Spotlight, Address, Windows, Preview); the keyboard appears when you click a text field. Pinch zooms, three fingers up shows all windows |
 | **Portrait trackpad layout** | In portrait the phone shows a live preview of the desktop above a trackpad, so you can explore the workspace without any display |
 
 Landscape without a display gives you the same desktop directly under your fingers.
@@ -79,7 +79,7 @@ Every push to `main` is built by GitHub Actions. The workflow uploads **`DeskFre
 - **Move / resize:** drag the title bar; drag any edge or corner.
 - **Maximise:** green button, or double-tap the title bar.
 - **Search:** magnifier in the menu bar.
-- **Files:** put files in *DeskFree* via the iOS Files app, or use *Import Files…*. Double-tap a PDF or video to open it in the right tool.
+- **Files:** put files in *DeskFree* via the iOS Files app, or use *Import Files…*. Double-tap a PDF, picture, text file or video to open it in the right tool.
 - **Big screen:** connect a display. The desktop moves to it and the phone shows the trackpad. **Touch** switches back to driving the desktop with your fingers; **Keyboard** opens the iOS keyboard and sends your typing to the search box, the browser address bar, Notes or the Calculator; **Desktop** minimises/restores every window.
 
 ## Continuous integration
@@ -94,7 +94,7 @@ project.yml                 XcodeGen spec (the .xcodeproj is generated, not comm
 Sources/DeskFree/
   Core/    window manager, Dock geometry, pointer hit-testing, search, settings, session
   Shell/   menu bar, Dock, window chrome, Spotlight, trackpad, root views
-  Apps/    Browser, Files, PDF, Video, Notes, Calculator, Settings
+  Apps/    Browser, Files, Preview, Video, Notes, Calculator, Settings
   App/     entry point and the external-display scene
 Tests/DeskFreeTests/        unit tests for the logic above
 .github/workflows/          build + test on a macOS runner, unsigned IPA artifact, screenshots
