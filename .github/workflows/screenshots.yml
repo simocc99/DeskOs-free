@@ -1,13 +1,16 @@
 name: Screenshots
 
-# Manual run: builds the app, launches it in the iPhone simulator and prints small JPEG
-# screenshots (base64) to the job log, so the UI can be reviewed without a Mac.
+# Builds the app, launches it in the iPhone simulator, takes screenshots and force-pushes
+# them to the throw-away `ci-screenshots` branch so the UI can be reviewed without a Mac.
 on:
   workflow_dispatch:
   push:
     branches: ["claude/**"]
     paths:
       - ".github/workflows/screenshots.yml"
+
+permissions:
+  contents: write
 
 jobs:
   shots:
@@ -39,19 +42,28 @@ jobs:
         run: |
           APP=build/sim/Build/Products/Debug-iphonesimulator/DeskFree.app
           xcrun simctl install booted "$APP"
+          mkdir -p shots
 
           capture() {
-            name="$1"; width="$2"; shift 2
+            name="$1"; shift
             xcrun simctl launch booted com.simocc99.deskfree "$@"
             sleep 10
-            xcrun simctl io booted screenshot --type=png "/tmp/$name.png"
-            sips -s format jpeg -s formatOptions 55 -Z "$width" "/tmp/$name.png" --out "/tmp/$name.jpg" >/dev/null
-            echo "@@SHOT $name BEGIN"
-            base64 -i "/tmp/$name.jpg" | fold -w 3000
-            echo
-            echo "@@SHOT $name END"
+            xcrun simctl io booted screenshot --type=png "shots/$name.png"
             xcrun simctl terminate booted com.simocc99.deskfree
           }
 
-          capture landscape 760 -deskfree-demo -deskfree-landscape
-          capture portrait 380 -deskfree-demo
+          capture landscape -deskfree-demo -deskfree-landscape
+          capture portrait -deskfree-demo
+          ls -la shots
+
+      - name: Publish screenshots to the ci-screenshots branch
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          cp -R shots /tmp/shots
+          git checkout --orphan ci-screenshots
+          git rm -rf --quiet . || true
+          cp /tmp/shots/*.png .
+          git add *.png
+          git commit -q -m "Screenshots for ${GITHUB_SHA}"
+          git push -f origin ci-screenshots
