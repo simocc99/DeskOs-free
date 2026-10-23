@@ -4,7 +4,8 @@ import UIKit
 ///   -deskfree-demo             enable demo mode
 ///   -deskfree-landscape        ask the scene to rotate to landscape first
 ///   -deskfree-scene <name>     windows (default), browser, files, pdf, notes,
-///                              calculator, settings, video, spotlight
+///                              calculator, settings, video, spotlight, launchpad,
+///                              switcher, menu, image
 enum DemoMode {
     private static var didRun = false
 
@@ -30,6 +31,7 @@ enum DemoMode {
         }
 
         let pdfURL = seedSampleFiles()
+        let imageURL = seedSampleImage()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             let windows = session.windows
@@ -49,6 +51,21 @@ enum DemoMode {
                 windows.toggleMaximize(windows.open(.settings))
             case "video":
                 windows.toggleMaximize(windows.open(.video))
+            case "launchpad":
+                windows.open(.files)
+                windows.open(.notes)
+                session.toggleLaunchpad()
+            case "switcher":
+                windows.open(.files)
+                windows.open(.notes)
+                windows.open(.browser)
+                session.toggleSwitcher()
+            case "menu":
+                windows.open(.files)
+                windows.open(.notes)
+                session.openMenu = 2
+            case "image":
+                windows.toggleMaximize(windows.open(.preview, payload: imageURL, title: "Sunrise.png"))
             case "spotlight":
                 windows.open(.files)
                 session.toggleSpotlight()
@@ -60,6 +77,22 @@ enum DemoMode {
                 windows.open(.browser)
             }
         }
+    }
+
+    private static func seedSampleImage() -> URL {
+        let folder = DocumentsStore.root.appendingPathComponent("Pictures")
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appendingPathComponent("Sunrise.png")
+        let size = CGSize(width: 1200, height: 800)
+        let image = UIGraphicsImageRenderer(size: size).image { context in
+            let colors = [UIColor.systemIndigo.cgColor, UIColor.systemPink.cgColor, UIColor.systemOrange.cgColor]
+            let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors as CFArray, locations: [0, 0.6, 1])!
+            context.cgContext.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: 0, y: size.height), options: [])
+            UIColor.white.withAlphaComponent(0.9).setFill()
+            context.cgContext.fillEllipse(in: CGRect(x: 450, y: 420, width: 300, height: 300))
+        }
+        try? image.pngData()?.write(to: url)
+        return url
     }
 
     /// Creates a few files so that the Files app and PDF Studio have something to show.

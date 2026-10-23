@@ -4,6 +4,10 @@ name: Screenshots
 # them to the throw-away `ci-screenshots` branch so the UI can be reviewed without a Mac.
 on:
   workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths:
+      - ".github/screenshots-trigger"
 
 permissions:
   contents: write
@@ -53,7 +57,7 @@ jobs:
           }
 
           capture portrait -deskfree-demo
-          for scene in windows browser files pdf notes calculator settings video spotlight; do
+          for scene in windows browser files pdf image notes calculator settings video spotlight launchpad switcher menu; do
             capture "landscape-$scene" -deskfree-demo -deskfree-landscape -deskfree-scene "$scene"
           done
           ls -la shots
