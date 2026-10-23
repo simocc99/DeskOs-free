@@ -29,10 +29,21 @@ enum FilesDialog: Identifiable {
     }
 }
 
+enum FilesPlace: Hashable {
+    case recents
+    case documents
+    case desktop
+    case downloads
+    case trash
+    case linked(UUID)
+}
+
 final class FilesModel: ObservableObject {
     enum ViewMode { case grid, list }
 
-    let root = DocumentsStore.root
+    /// Root of the current place (Documents, a linked folder...).
+    @Published private(set) var root = DocumentsStore.root
+    @Published private(set) var place: FilesPlace = .documents
 
     @Published private(set) var directory: URL
     @Published private(set) var items: [FileItem] = []
@@ -65,26 +76,90 @@ final class FilesModel: ObservableObject {
 
     var canGoBack: Bool { !backStack.isEmpty }
     var canGoForward: Bool { !forwardStack.isEmpty }
-    var canGoUp: Bool { directory.standardizedFileURL.path != root.standardizedFileURL.path }
+    var canGoUp: Bool {
+        place != .recents && directory.standardizedFileURL.path != root.standardizedFileURL.path
+    }
+
+    var isTrash: Bool { place == .trash }
+
+    var placeTitle: String {
+        switch place {
+        case .recents: return "Recents"
+        case .documents: return "Documents"
+        case .desktop: return "Desktop"
+        case .downloads: return "Downloads"
+        case .trash: return "Trash"
+        case .linked(let id): return LinkedFolders.shared.folders.first { $0.id == id }?.name ?? "Folder"
+        }
+    }
 
     var relativePath: String {
+        if place == .recents { return "Recents" }
         let base = root.standardizedFileURL.path
         let current = directory.standardizedFileURL.path
         guard current.hasPrefix(base) else { return directory.lastPathComponent }
         let rest = String(current.dropFirst(base.count)).split(separator: "/").map(String.init)
-        return (["Documents"] + rest).joined(separator: "  ›  ")
+        return ([placeTitle] + rest).joined(separator: "  ›  ")
+    }
+
+    func show(_ newPlace: FilesPlace) {
+        var newRoot: URL?
+        switch newPlace {
+        case .recents: newRoot = DocumentsStore.root
+        case .documents: newRoot = DocumentsStore.root
+        case .desktop: newRoot = DocumentsStore.standardFolder("Desktop")
+        case .downloads: newRoot = DocumentsStore.standardFolder("Downloads")
+        case .trash: newRoot = DocumentsStore.trashDirectory
+        case .linked(let id):
+            if let folder = LinkedFolders.shared.folders.first(where: { $0.id == id }) {
+                newRoot = LinkedFolders.shared.url(for: folder)
+            }
+        }
+        guard let newRoot else {
+            errorMessage = "That folder is no longer available."
+            return
+        }
+        backStack.append(directory)
+        forwardStack.removeAll()
+        place = newPlace
+        root = newRoot
+        directory = newRoot
+        selectedURL = nil
+        search = ""
+        reload()
+    }
+
+    func linkFolder() {
+        DeskSession.shared.presenter.importFiles(types: [.folder]) { [weak self] urls in
+            guard let url = urls.first else { return }
+            LinkedFolders.shared.add(url)
+            if let folder = LinkedFolders.shared.folders.first(where: { $0.name == url.lastPathComponent }) {
+                self?.show(.linked(folder.id))
+            }
+        }
+    }
+
+    func emptyTrash() {
+        let urls = (try? FileManager.default.contentsOfDirectory(at: DocumentsStore.trashDirectory, includingPropertiesForKeys: nil)) ?? []
+        for url in urls { try? FileManager.default.removeItem(at: url) }
+        reload()
     }
 
     // MARK: Navigation
 
     func reload() {
         let keys: [URLResourceKey] = [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey]
-        let urls = (try? FileManager.default.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: keys,
-            options: [.skipsHiddenFiles]
-        )) ?? []
-        items = urls.map { url in
+        let urls: [URL]
+        if place == .recents {
+            urls = DocumentsStore.recentFiles()
+        } else {
+            urls = (try? FileManager.default.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: keys,
+                options: [.skipsHiddenFiles]
+            )) ?? []
+        }
+        let mapped = urls.map { url in
             let values = try? url.resourceValues(forKeys: Set(keys))
             return FileItem(
                 url: url,
@@ -93,7 +168,7 @@ final class FilesModel: ObservableObject {
                 modified: values?.contentModificationDate ?? .distantPast
             )
         }
-        .sorted {
+        items = place == .recents ? mapped : mapped.sorted {
             if $0.isDirectory != $1.isDirectory { return $0.isDirectory }
             return $0.name.localizedStandardCompare($1.name) == .orderedAscending
         }
@@ -154,8 +229,14 @@ final class FilesModel: ObservableObject {
         perform { try FileManager.default.moveItem(at: item.url, to: destination) }
     }
 
+    /// Moves to the app's Trash; items already in the Trash are deleted for good.
     func delete(_ item: FileItem) {
-        perform { try FileManager.default.removeItem(at: item.url) }
+        if isTrash {
+            perform { try FileManager.default.removeItem(at: item.url) }
+        } else {
+            let destination = DocumentsStore.uniqueURL(in: DocumentsStore.trashDirectory, name: item.name)
+            perform { try FileManager.default.moveItem(at: item.url, to: destination) }
+        }
     }
 
     func duplicate(_ item: FileItem) {

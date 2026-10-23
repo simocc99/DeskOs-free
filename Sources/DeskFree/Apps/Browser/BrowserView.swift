@@ -111,6 +111,7 @@ private struct BrowserToolbar: View {
     @ObservedObject var tab: BrowserTab
     let windowID: UUID
 
+    @ObservedObject private var bookmarks = BookmarksStore.shared
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -137,7 +138,19 @@ private struct BrowserToolbar: View {
             .padding(.horizontal, 10)
             .frame(height: 30)
             .background(Color(uiColor: .systemGray5), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .padding(.trailing, 8)
+            .padding(.trailing, 2)
+
+            Button {
+                if let url = tab.url { bookmarks.toggle(title: tab.title, url: url) }
+            } label: {
+                Image(systemName: bookmarks.contains(tab.url) ? "star.fill" : "star")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(bookmarks.contains(tab.url) ? Color.yellow : Color.primary)
+                    .frame(width: 36, height: BrowserMetrics.toolbarHeight)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(tab.url == nil)
         }
         .frame(height: BrowserMetrics.toolbarHeight)
         .background(Color(uiColor: .systemBackground))
@@ -190,21 +203,7 @@ private struct BrowserStartPage: View {
     @ObservedObject var model: BrowserModel
     @ObservedObject var tab: BrowserTab
 
-    private struct Favorite: Identifiable {
-        let name: String
-        let symbol: String
-        let url: String
-        var id: String { name }
-    }
-
-    private let favorites: [Favorite] = [
-        Favorite(name: "DuckDuckGo", symbol: "magnifyingglass", url: "https://duckduckgo.com"),
-        Favorite(name: "Wikipedia", symbol: "book.closed", url: "https://wikipedia.org"),
-        Favorite(name: "GitHub", symbol: "chevron.left.forwardslash.chevron.right", url: "https://github.com"),
-        Favorite(name: "YouTube", symbol: "play.rectangle", url: "https://youtube.com"),
-        Favorite(name: "Maps", symbol: "map", url: "https://www.openstreetmap.org"),
-        Favorite(name: "News", symbol: "newspaper", url: "https://news.ycombinator.com")
-    ]
+    @ObservedObject private var bookmarks = BookmarksStore.shared
 
     var body: some View {
         if tab.url == nil && !tab.isLoading {
@@ -212,26 +211,31 @@ private struct BrowserStartPage: View {
                 Color(uiColor: .systemBackground)
                 ScrollView {
                 VStack(spacing: 18) {
-                    Text("Favorites")
+                    Text("Bookmarks")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.secondary)
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), spacing: 14)], spacing: 14) {
-                        ForEach(favorites) { favorite in
+                        ForEach(bookmarks.items) { bookmark in
                             Button {
-                                if let url = URL(string: favorite.url) { model.navigate(to: url) }
+                                if let url = URL(string: bookmark.url) { model.navigate(to: url) }
                             } label: {
                                 VStack(spacing: 6) {
-                                    Image(systemName: favorite.symbol)
-                                        .font(.system(size: 22))
+                                    Text(String(bookmark.title.prefix(1)).uppercased())
+                                        .font(.system(size: 22, weight: .semibold))
                                         .frame(width: 52, height: 52)
                                         .background(Color(uiColor: .systemGray5), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-                                    Text(favorite.name)
+                                    Text(bookmark.title)
                                         .font(.system(size: 11))
                                         .lineLimit(1)
                                 }
                                 .foregroundStyle(.primary)
                             }
                             .buttonStyle(.plain)
+                            .contextMenu {
+                                Button(role: .destructive) { bookmarks.remove(bookmark) } label: {
+                                    Label("Remove Bookmark", systemImage: "trash")
+                                }
+                            }
                         }
                     }
                     .padding(.horizontal, 24)

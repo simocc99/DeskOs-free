@@ -3,6 +3,7 @@ import SwiftUI
 struct FilesWindowView: View {
     let window: DeskWindow
     @ObservedObject private var model: FilesModel
+    @ObservedObject private var linked = LinkedFolders.shared
 
     init(window: DeskWindow) {
         self.window = window
@@ -16,7 +17,7 @@ struct FilesWindowView: View {
                 Divider()
                 HStack(spacing: 0) {
                     if geo.size.width >= 520 {
-                        sidebar.frame(width: 150)
+                        sidebar.frame(width: 172)
                         Divider()
                     }
                     content
@@ -57,6 +58,12 @@ struct FilesWindowView: View {
             .frame(height: 26)
             .background(Color(uiColor: .systemGray5), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
 
+            if model.isTrash {
+                Button("Empty") { model.emptyTrash() }
+                    .font(.system(size: 13))
+                    .buttonStyle(.borderless)
+            }
+
             barButton(model.viewMode == .grid ? "list.bullet" : "square.grid.2x2", enabled: true) {
                 model.viewMode = model.viewMode == .grid ? .list : .grid
             }
@@ -72,6 +79,11 @@ struct FilesWindowView: View {
                     model.importFiles()
                 } label: {
                     Label("Import Files…", systemImage: "square.and.arrow.down")
+                }
+                Button {
+                    model.linkFolder()
+                } label: {
+                    Label("Link Folder…", systemImage: "link.badge.plus")
                 }
                 Button {
                     model.reload()
@@ -104,31 +116,63 @@ struct FilesWindowView: View {
     // MARK: Sidebar
 
     private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("Locations")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 10)
-                .padding(.top, 10)
-            sidebarRow("Documents", symbol: "folder", url: model.root)
-            sidebarRow("Exports", symbol: "square.and.arrow.up", url: DocumentsStore.exportsDirectory)
-            Spacer()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 2) {
+                sectionTitle("Favorites")
+                placeRow("Recents", symbol: "clock", place: .recents)
+                actionRow("Applications", symbol: "square.grid.2x2") { DeskSession.shared.toggleLaunchpad() }
+                placeRow("Desktop", symbol: "menubar.dock.rectangle", place: .desktop)
+                placeRow("Documents", symbol: "doc", place: .documents)
+                placeRow("Downloads", symbol: "arrow.down.circle", place: .downloads)
+
+                sectionTitle("Locations")
+                ForEach(linked.folders) { folder in
+                    placeRow(folder.name, symbol: "externaldrive", place: .linked(folder.id))
+                        .contextMenu {
+                            Button(role: .destructive) { linked.remove(folder) } label: {
+                                Label("Unlink Folder", systemImage: "link.badge.minus")
+                            }
+                        }
+                }
+                actionRow("Link Folder…", symbol: "link.badge.plus") { model.linkFolder() }
+                actionRow("Import Files…", symbol: "square.and.arrow.down") { model.importFiles() }
+
+                Divider().padding(.vertical, 6)
+                placeRow("Trash", symbol: "trash", place: .trash)
+            }
+            .padding(.bottom, 8)
         }
         .background(Color(uiColor: .secondarySystemBackground).opacity(0.6))
     }
 
-    private func sidebarRow(_ title: String, symbol: String, url: URL) -> some View {
-        let active = model.directory.standardizedFileURL.path == url.standardizedFileURL.path
-        return Button {
-            model.navigate(to: url)
-        } label: {
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 2)
+    }
+
+    private func placeRow(_ title: String, symbol: String, place: FilesPlace) -> some View {
+        sidebarButton(title, symbol: symbol, active: model.place == place) { model.show(place) }
+    }
+
+    private func actionRow(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
+        sidebarButton(title, symbol: symbol, active: false, action: action)
+    }
+
+    private func sidebarButton(_ title: String, symbol: String, active: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             Label(title, systemImage: symbol)
                 .font(.system(size: 13))
+                .lineLimit(1)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(active ? Color.accentColor.opacity(0.2) : Color.clear, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                 .padding(.horizontal, 4)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -280,9 +324,11 @@ struct FilesWindowView: View {
                             model.rename(item, to: model.dialogText)
                         }
                     case .delete(let item):
-                        Text("Delete “\(item.name)”?").font(.headline).multilineTextAlignment(.center)
-                        Text("This can't be undone.").font(.system(size: 12)).foregroundStyle(.secondary)
-                        dialogButtons(confirm: "Delete", destructive: true) {
+                        Text(model.isTrash ? "Delete “\(item.name)”?" : "Move “\(item.name)” to the Trash?")
+                            .font(.headline).multilineTextAlignment(.center)
+                        Text(model.isTrash ? "This can't be undone." : "You can empty the Trash from the sidebar.")
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                        dialogButtons(confirm: model.isTrash ? "Delete" : "Move to Trash", destructive: true) {
                             model.delete(item)
                         }
                     }

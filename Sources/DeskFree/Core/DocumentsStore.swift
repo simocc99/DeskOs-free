@@ -21,6 +21,34 @@ enum DocumentsStore {
         return dir
     }
 
+    static var trashDirectory: URL {
+        let dir = supportDirectory.appendingPathComponent("Trash", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    /// A standard sub-folder of Documents (Desktop, Downloads), created on demand.
+    static func standardFolder(_ name: String) -> URL {
+        let dir = root.appendingPathComponent(name, isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    private static let recentsKey = "recentFiles"
+
+    static func addRecent(_ url: URL) {
+        var paths = UserDefaults.standard.stringArray(forKey: recentsKey) ?? []
+        paths.removeAll { $0 == url.path }
+        paths.insert(url.path, at: 0)
+        UserDefaults.standard.set(Array(paths.prefix(30)), forKey: recentsKey)
+    }
+
+    static func recentFiles() -> [URL] {
+        (UserDefaults.standard.stringArray(forKey: recentsKey) ?? [])
+            .filter { FileManager.default.fileExists(atPath: $0) }
+            .map { URL(fileURLWithPath: $0) }
+    }
+
     static var wallpaperURL: URL {
         supportDirectory.appendingPathComponent("wallpaper.jpg")
     }

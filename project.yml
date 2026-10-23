@@ -34,6 +34,7 @@ targets:
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
         ITSAppUsesNonExemptEncryption: false
+        NSPhotoLibraryAddUsageDescription: DeskFree saves edited pictures to your Photos library when you ask it to.
         NSPhotoLibraryUsageDescription: DeskFree reads videos and pictures you choose to edit them or use them as wallpaper.
     settings:
       base:

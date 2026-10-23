@@ -20,7 +20,9 @@ struct PreviewWindowView: View {
         VStack(spacing: 0) {
             PDFToolbar(model: model)
             Divider()
-            if model.hasDocument {
+            if model.isImage, let picture = model.image {
+                ImageCanvas(image: picture, zoom: model.imageZoom)
+            } else if model.hasDocument {
                 HStack(spacing: 0) {
                     if model.showSidebar {
                         PDFThumbnails(model: model)
@@ -92,49 +94,60 @@ private struct PDFToolbar: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 iconButton("folder", label: "Open") { model.pickDocument() }
-                iconButton("sidebar.left", selected: model.showSidebar, enabled: model.hasDocument) {
-                    model.showSidebar.toggle()
-                }
 
-                divider
-
-                ForEach(PDFTool.allCases) { tool in
-                    iconButton(tool.symbol, selected: model.tool == tool, enabled: model.hasDocument) {
-                        model.tool = tool
-                    }
-                }
-
-                if model.tool.usesColor {
+                if model.isImage {
                     divider
-                    ForEach(Array(PDFPalette.colors.enumerated()), id: \.offset) { index, entry in
-                        Button {
-                            model.colorIndex = index
-                        } label: {
-                            Circle()
-                                .fill(Color(uiColor: entry.color))
-                                .frame(width: 20, height: 20)
-                                .overlay(
-                                    Circle().strokeBorder(Color.primary.opacity(model.colorIndex == index ? 0.9 : 0.15), lineWidth: model.colorIndex == index ? 2 : 1)
-                                )
-                                .frame(width: 28, height: 30)
-                        }
-                        .buttonStyle(.plain)
+                    iconButton("rotate.right") { model.rotateImage() }
+                    zoomButtons
+                } else {
+                    iconButton("sidebar.left", selected: model.showSidebar, enabled: model.hasDocument) {
+                        model.showSidebar.toggle()
                     }
+
+                    divider
+
+                    ForEach(PDFTool.allCases) { tool in
+                        iconButton(tool.symbol, selected: model.tool == tool, enabled: model.hasDocument) {
+                            model.tool = tool
+                        }
+                    }
+
+                    if model.tool.usesColor {
+                        divider
+                        ForEach(Array(PDFPalette.colors.enumerated()), id: \.offset) { index, entry in
+                            Button {
+                                model.colorIndex = index
+                            } label: {
+                                Circle()
+                                    .fill(Color(uiColor: entry.color))
+                                    .frame(width: 20, height: 20)
+                                    .overlay(
+                                        Circle().strokeBorder(Color.primary.opacity(model.colorIndex == index ? 0.9 : 0.15), lineWidth: model.colorIndex == index ? 2 : 1)
+                                    )
+                                    .frame(width: 28, height: 30)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    if model.tool.isMarkup, model.hasSelection {
+                        Button("Apply") { model.applyMarkupToSelection() }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                    }
+
+                    divider
+                    iconButton("arrow.uturn.backward", enabled: model.canUndo) { model.undo() }
+                    zoomButtons
                 }
-
-                if model.tool.isMarkup, model.hasSelection {
-                    Button("Apply") { model.applyMarkupToSelection() }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                }
-
-                divider
-
-                iconButton("arrow.uturn.backward", enabled: model.canUndo) { model.undo() }
 
                 Menu {
                     Button { model.save() } label: { Label("Save", systemImage: "square.and.arrow.down") }
                     Button { model.saveCopy() } label: { Label("Save a Copy", systemImage: "doc.on.doc") }
+                    if model.isImage {
+                        Button { model.saveToPhotos() } label: { Label("Save to Photos", systemImage: "photo.badge.plus") }
+                    }
+                    Button { model.printDocument() } label: { Label("Print…", systemImage: "printer") }
                     Button { model.share() } label: { Label("Share…", systemImage: "square.and.arrow.up") }
                 } label: {
                     Image(systemName: model.isDirty ? "square.and.arrow.down.fill" : "square.and.arrow.down")
@@ -143,19 +156,26 @@ private struct PDFToolbar: View {
                 }
                 .disabled(!model.hasDocument)
 
-                divider
-
-                iconButton("chevron.up", enabled: model.hasDocument) { model.previousPage() }
-                Text(model.hasDocument ? "\(model.pageIndex + 1) / \(model.pageCount)" : "–")
-                    .font(.system(size: 12, weight: .medium).monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(minWidth: 46)
-                iconButton("chevron.down", enabled: model.hasDocument) { model.nextPage() }
+                if !model.isImage {
+                    divider
+                    iconButton("chevron.up", enabled: model.hasDocument) { model.previousPage() }
+                    Text(model.hasDocument ? "\(model.pageIndex + 1) / \(model.pageCount)" : "–")
+                        .font(.system(size: 12, weight: .medium).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .frame(minWidth: 46)
+                    iconButton("chevron.down", enabled: model.hasDocument) { model.nextPage() }
+                }
             }
             .padding(.horizontal, 8)
         }
         .frame(height: 42)
         .background(Color(uiColor: .secondarySystemBackground))
+    }
+
+    @ViewBuilder
+    private var zoomButtons: some View {
+        iconButton("minus.magnifyingglass", enabled: model.hasDocument) { model.zoom(by: 1 / 1.25) }
+        iconButton("plus.magnifyingglass", enabled: model.hasDocument) { model.zoom(by: 1.25) }
     }
 
     private var divider: some View {
@@ -300,5 +320,22 @@ final class InkCanvasView: UIView {
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         points = []
         shape.path = nil
+    }
+}
+
+private struct ImageCanvas: View {
+    let image: UIImage
+    let zoom: CGFloat
+
+    var body: some View {
+        GeometryReader { geo in
+            ScrollView([.horizontal, .vertical]) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: max(geo.size.width * zoom, 1), height: max(geo.size.height * zoom, 1))
+            }
+            .background(Color(uiColor: .systemGray5))
+        }
     }
 }

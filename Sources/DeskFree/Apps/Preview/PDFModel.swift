@@ -72,6 +72,11 @@ final class PDFModel: NSObject, ObservableObject, PointerInteractive {
     @Published var pendingText = ""
     @Published var message: String?
     @Published var penWidth: CGFloat = 3
+    /// Set when the opened file is a picture instead of a PDF.
+    @Published var image: UIImage?
+    @Published var imageZoom: CGFloat = 1
+
+    var isImage: Bool { image != nil }
 
     private var undoStack: [(page: PDFPage, annotation: PDFAnnotation)] = []
     private var tokens: [NSObjectProtocol] = []
@@ -108,7 +113,14 @@ final class PDFModel: NSObject, ObservableObject, PointerInteractive {
 
     // MARK: Document
 
+    private static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "heic", "gif", "tiff", "webp"]
+
     func open(url: URL) {
+        if Self.imageExtensions.contains(url.pathExtension.lowercased()) {
+            openImage(url)
+            return
+        }
+        image = nil
         guard let data = try? Data(contentsOf: url), let document = PDFDocument(data: data) else {
             message = "Couldn't open this PDF."
             return
@@ -123,14 +135,87 @@ final class PDFModel: NSObject, ObservableObject, PointerInteractive {
         updateTitle()
     }
 
+    private func openImage(_ url: URL) {
+        guard let data = try? Data(contentsOf: url), let picture = UIImage(data: data) else {
+            message = "Couldn't open this image."
+            return
+        }
+        pdfView.document = nil
+        image = picture
+        imageZoom = 1
+        fileURL = url
+        hasDocument = true
+        pageCount = 1
+        pageIndex = 0
+        isDirty = false
+        undoStack.removeAll()
+        updateTitle()
+    }
+
+    func rotateImage() {
+        guard let picture = image else { return }
+        let size = CGSize(width: picture.size.height, height: picture.size.width)
+        image = UIGraphicsImageRenderer(size: size).image { context in
+            context.cgContext.translateBy(x: size.width / 2, y: size.height / 2)
+            context.cgContext.rotate(by: .pi / 2)
+            picture.draw(in: CGRect(x: -picture.size.width / 2, y: -picture.size.height / 2, width: picture.size.width, height: picture.size.height))
+        }
+        isDirty = true
+        updateTitle()
+    }
+
+    func saveToPhotos() {
+        guard let picture = image else { return }
+        UIImageWriteToSavedPhotosAlbum(picture, nil, nil, nil)
+        message = "Saved to Photos"
+    }
+
+    func zoom(by factor: CGFloat) {
+        if image != nil {
+            imageZoom = min(max(imageZoom * factor, 0.2), 8)
+        } else if pdfView.document != nil {
+            pdfView.autoScales = false
+            pdfView.scaleFactor = min(max(pdfView.scaleFactor * factor, pdfView.minScaleFactor), pdfView.maxScaleFactor)
+        }
+    }
+
+    func printDocument() {
+        let controller = UIPrintInteractionController.shared
+        if let picture = image {
+            controller.printingItem = picture
+        } else if let data = pdfView.document?.dataRepresentation() {
+            controller.printingItem = data
+        } else {
+            return
+        }
+        controller.present(animated: true)
+    }
+
+    private func encodedImage() -> Data? {
+        guard let picture = image, let url = fileURL else { return nil }
+        return url.pathExtension.lowercased() == "png" ? picture.pngData() : picture.jpegData(compressionQuality: 0.92)
+    }
+
     func pickDocument() {
-        DeskSession.shared.presenter.importFiles(types: [.pdf]) { [weak self] urls in
+        DeskSession.shared.presenter.importFiles(types: [.pdf, .image]) { [weak self] urls in
             guard let url = urls.first, let local = try? DocumentsStore.importCopy(of: url) else { return }
             self?.open(url: local)
         }
     }
 
     func save() {
+        if image != nil {
+            guard let url = fileURL, let data = encodedImage() else { return }
+            do {
+                try data.write(to: url, options: .atomic)
+                isDirty = false
+                message = "Saved"
+            } catch {
+                message = "Couldn't save the file."
+            }
+            updateTitle()
+            return
+        }
         guard let document = pdfView.document, let url = fileURL else { return }
         if document.write(to: url) {
             isDirty = false
@@ -142,6 +227,13 @@ final class PDFModel: NSObject, ObservableObject, PointerInteractive {
     }
 
     func saveCopy() {
+        if image != nil {
+            guard let url = fileURL, let data = encodedImage() else { return }
+            let name = url.deletingPathExtension().lastPathComponent + " (edited)." + url.pathExtension
+            let destination = DocumentsStore.uniqueURL(in: url.deletingLastPathComponent(), name: name)
+            message = (try? data.write(to: destination, options: .atomic)) != nil ? "Saved a copy: \(destination.lastPathComponent)" : "Couldn't save the copy."
+            return
+        }
         guard let document = pdfView.document, let url = fileURL else { return }
         let name = url.deletingPathExtension().lastPathComponent + " (annotated).pdf"
         let destination = DocumentsStore.uniqueURL(in: url.deletingLastPathComponent(), name: name)
@@ -281,6 +373,10 @@ final class PDFModel: NSObject, ObservableObject, PointerInteractive {
     // MARK: PointerInteractive
 
     func pointerClick(at point: CGPoint) {}
+
+    func pointerZoom(by scale: CGFloat) {
+        zoom(by: scale)
+    }
 
     func pointerScroll(by delta: CGPoint) {
         guard let scrollView = Self.findScrollView(in: pdfView) else { return }

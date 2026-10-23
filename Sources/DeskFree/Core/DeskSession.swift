@@ -188,6 +188,10 @@ final class DeskSession: ObservableObject {
         self.settings = settings
         self.windows = WindowManager()
         windows.dockIconPreference = CGFloat(settings.dockIconSize)
+        if !UserDefaults.standard.bool(forKey: "seededWelcomeFile") {
+            DocumentsStore.ensureWelcomeFile()
+            UserDefaults.standard.set(true, forKey: "seededWelcomeFile")
+        }
 
         settings.$dockIconSize
             .dropFirst()
@@ -584,6 +588,7 @@ final class DeskSession: ObservableObject {
     // MARK: Opening things
 
     func openFile(_ url: URL) {
+        DocumentsStore.addRecent(url)
         switch url.pathExtension.lowercased() {
         case "pdf":
             windows.open(.preview, payload: url, title: url.lastPathComponent)
@@ -592,8 +597,7 @@ final class DeskSession: ObservableObject {
         case "mp4", "mov", "m4v":
             windows.open(.video, payload: url, title: url.lastPathComponent)
         case "txt", "md":
-            NotesStore.shared.importTextFile(url)
-            if windows.windows(of: .notes).isEmpty { windows.open(.notes) } else { windows.activate(.notes) }
+            windows.open(.notes, payload: url, title: NotesModel.displayName(for: url))
         default:
             presenter.quickLookURL = url
         }

@@ -41,7 +41,8 @@ enum DemoMode {
             case "pdf":
                 windows.toggleMaximize(windows.open(.preview, payload: pdfURL, title: "Welcome.pdf"))
             case "notes":
-                windows.toggleMaximize(windows.open(.notes))
+                let welcome = DocumentsStore.ensureWelcomeFile()
+                windows.toggleMaximize(windows.open(.notes, payload: welcome, title: NotesModel.displayName(for: welcome)))
             case "calculator":
                 windows.toggleMaximize(windows.open(.calculator))
             case "settings":

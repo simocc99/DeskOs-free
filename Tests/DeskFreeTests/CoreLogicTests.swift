@@ -98,37 +98,36 @@ final class SpotlightEngineTests: XCTestCase {
     }
 }
 
-final class NotesStoreTests: XCTestCase {
-    private func temporaryURL() -> URL {
-        FileManager.default.temporaryDirectory.appendingPathComponent("notes-\(UUID().uuidString).json")
-    }
-
-    func testCreateUpdateAndPersist() throws {
-        let url = temporaryURL()
+final class NotesModelTests: XCTestCase {
+    func testOpeningAndEditingAFileSavesIt() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("note-\(UUID().uuidString).txt")
+        try "Hello".write(to: url, atomically: true, encoding: .utf8)
         defer { try? FileManager.default.removeItem(at: url) }
 
-        let store = NotesStore(fileURL: url)
-        let welcomeCount = store.notes.count
-        XCTAssertEqual(welcomeCount, 1)
-
-        let id = store.create(text: "Shopping\nMilk")
-        XCTAssertEqual(store.notes.first?.id, id)
-        XCTAssertEqual(store.notes.first?.title, "Shopping")
-        XCTAssertEqual(store.notes.first?.preview, "Milk")
-
-        store.update(id, text: "Shopping list\nMilk\nEggs")
-        let reloaded = NotesStore(fileURL: url)
-        XCTAssertEqual(reloaded.notes.count, welcomeCount + 1)
-        XCTAssertEqual(reloaded.note(id)?.text, "Shopping list\nMilk\nEggs")
+        let model = NotesModel(windowID: UUID(), url: url)
+        XCTAssertEqual(model.text, "Hello")
+        model.handle(.text(" world"))
+        model.handle(.enter)
+        model.handle(.backspace)
+        model.saveNow()
+        XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "Hello world")
     }
 
-    func testDeletingTheLastNoteLeavesAnEmptyOne() {
-        let url = temporaryURL()
-        defer { try? FileManager.default.removeItem(at: url) }
-        let store = NotesStore(fileURL: url)
-        for note in store.notes { store.delete(note.id) }
-        XCTAssertEqual(store.notes.count, 1)
-        XCTAssertEqual(store.notes.first?.title, "New Note")
+    func testANewFileIsOnlyCreatedOnceSomethingIsTyped() {
+        let model = NotesModel(windowID: UUID(), url: nil)
+        model.saveNow()
+        XCTAssertNil(model.fileURL)
+
+        model.handle(.text("x"))
+        model.saveNow()
+        let created = model.fileURL
+        XCTAssertNotNil(created)
+        if let created { try? FileManager.default.removeItem(at: created) }
+    }
+
+    func testDisplayNameIsRelativeToDocuments() {
+        let url = DocumentsStore.root.appendingPathComponent("Weekend/plan.txt")
+        XCTAssertEqual(NotesModel.displayName(for: url), "Weekend/plan.txt")
     }
 }
 
